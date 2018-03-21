@@ -1,9 +1,13 @@
 require "json"
-
+require "yaml"
 class HelpDeskUtil
-
+  attr_accessor :optionkeys
   def initialize(filename)
     @db = parseFileToDB(filename)
+    @optionkeys = Array.new
+    @db.each do |a|
+       @optionkeys = @optionkeys | a.keys
+    end
   end
  
   def parseFileToDB(filename)
@@ -28,7 +32,18 @@ class HelpDeskUtil
   
   def is_equal?(v1, v2)
     if v1.kind_of?(Array)
-      return v1.include?(v2)
+      if v1.kind_of?(Array) && !v2.nil? && v2.kind_of?(Array)
+         foundall = true
+         v2.each do |i|
+           if !v1.include?(i)
+             foundall = false
+             break
+           end
+         end
+         return foundall
+      else
+        return v1.include?(v2)
+      end
     elsif v1.kind_of?(Integer)
       return v1 == v2.to_i
     elsif is_boolean?(v1)
@@ -46,19 +61,22 @@ class HelpDeskUtil
     return h.any?{ |k,v| (k == key.to_sym) and ( is_equal?(v, value )) }
   end
 
-   def findByFilter(term, value)
+  def findByFilter(term, value)
     result = []
     @db.each do |a|
       hash = a
       if pair_present?(hash, term, value)
         result.concat([a])
       end
+      if (value.nil? || value == "")  && @optionkeys.include?(term.to_sym) && !a.keys.include?(term.to_sym) 
+        result.concat([a])
+      end
     end
     return result
   end
 
-  def findOptionKeys
-    return @db[0].keys 
+   def findOptionKeys
+    return @optionkeys
   end
 
   def dump
@@ -79,7 +97,6 @@ class UserDB < HelpDeskUtil
     end
     puts "total users: #{@db.count}"
   end
-
 end
 
 class TicketDB < HelpDeskUtil
@@ -121,16 +138,72 @@ class HelpDeskSearchTool
 
   def searchUsers(term, value)
     json = @@userDB.findByFilter(term, value)
+    return json unless json
+    json.each do |item|
+      if item.has_key? :organization_id
+        org = @@orgDB.findByFilter("_id", item[:organization_id])
+        item["organization_name".to_sym] = org[0][:name] if org != nil
+      else
+        puts "#{item[:_id]} has no organization_id"
+      end
+      tickets = @@ticketDB.findByFilter("submitter_id", item[:_id])
+      i = 0
+      tickets.each do |ticket|
+        key = "ticket_#{i}"
+        i = i+1
+        item[key.to_sym] = ticket[:subject]
+      end
+    end
     return json
   end
 
   def searchTickets(term, value)
     json = @@ticketDB.findByFilter(term, value)
+    if json != nil
+      json.each do |item|
+        if item.has_key? :organization_id
+          org = @@orgDB.findByFilter("_id", item[:organization_id]) 
+          item["organization_name".to_sym] = org[0][:name] if org != nil && org.count == 1
+        else
+          puts "#{item[:_id]} has no organization_id"
+        end
+        if item.has_key? :submitter_id
+          submitter = @@userDB.findByFilter("_id", item[:submitter_id ]) 
+          item["submitter_name".to_sym] =  submitter[0][:name] if submitter != nil && submitter.count == 1
+        else
+          puts "#{item[:_id]} has no submitter_id"
+        end
+        if item.has_key? :assignee_id
+          assignee = @@userDB.findByFilter("_id", item[:assignee_id]) 
+          item["assignee_name".to_sym] =  assignee[0][:name] if assignee != nil && assignee.count == 1
+        else
+          puts "#{item[:_id]} has no assignee_id"
+        end
+      end
+    end
     return json
   end
 
   def searchOrganizations(term, value)
     json = @@orgDB.findByFilter(term, value)
+    return json unless json
+    json.each do |item|
+      users = @@userDB.findByFilter("organization_id", item[:_id])
+      i = 0
+      users.each do |user|
+        name = "user_#{i}"
+        item[name.to_sym] = user[:name]
+        i = i + 1
+      end
+      tickets = @@ticketDB.findByFilter("organization_id", item[:_id])
+      i = 0
+      tickets.each do |user|
+        name = "tickets_#{i}"
+        item[name.to_sym] = user[:subject]
+        i = i + 1
+      end
+      
+    end
     return json
   end
 
@@ -169,6 +242,9 @@ class HelpDeskSearchTool
       term = gets.strip
       puts "Entry search value"
       value = gets.strip
+      if !value.empty?
+        value = YAML.load(value)
+      end
       results = [] 
       case s_i
       when 1

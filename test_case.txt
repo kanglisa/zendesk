@@ -1,0 +1,66 @@
+Tickets testing:
+1. search by keys that are only return one item.
+   i.e:  _id, url, created_at
+   a) search _id = f2379173-6083-49f9-a001-8310f6478b4e
+   b) search _id = 7ef6cf9f-121d-41e7-832c-68d811da9379
+   c) search url = http://initech.zendesk.com/api/v2/tickets/4b88dee7-0c17-4fe2-8cb6-914b7ce93dc3.json
+   d) create_at = 2016-01-27T03:45:05 -11:00
+   e) search by subject "A Catastrophe in Bahrain"
+      
+2. search by keys that return multiple items. Nothing crash or error
+  a) search status = solved
+     c68cb7d7-b517-4d0b-a826-9605423e78c2  has no assignee_id
+     54f60187-6064-492a-9a4c-37fc21b4e300 has no organization_id
+
+  b) search priority=high
+     expected result:
+       c68cb7d7-b517-4d0b-a826-9605423e78c2 has no assignee_id
+
+  c) search status=closed
+     expected result:
+      3ff0599a-fe0f-4f8f-ac31-e2636843bcea has no assignee_id
+3. search for empty assignee_id
+   expected return only a tickets has no assignee_id
+4. search of empty organization_id
+   expected return only a tickets has no organization_id
+
+
+Users testing:
+1. search by keys that are only return one item.
+   i.e:  _id, name, created_at
+   a) search _id = 71
+   b) search _id = 73
+   c) search name = Ingrid Wagner
+   d) create_at = 2016-04-15T05:19:46 -10:00
+
+2. search by keys that return multiple items. nothing crash.
+   a) suspend = true
+      expected result:
+       62 has no organization_id
+   b) active = true
+      expected result:
+        16 has no organization_id
+        62 has no organization_id
+   c) shared = false
+      expected result:
+      16 has no organization_id
+      44 has no organization_id
+      62 has no organization_id
+3. search by tags
+   tags = Biehle
+
+4. search by organization_id = empty.
+   expected results
+   It should return users that has no organization_id
+   
+Organziation testing:
+1. search by keys that are only return one time.
+   i.e. _id, url, name, created_at
+
+2. search of empty details
+   expected result: _id = 126 should returned
+
+3. search by tags
+   a) tags=Cherry
+   expected result: all the items with a tag of cherry should be returned.
+   b) tags=
